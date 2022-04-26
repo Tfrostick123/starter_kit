@@ -38,7 +38,7 @@ class Main extends Component {
             Buy
           </button>
           <span className="text-muted">&lt; &nbsp; &gt;</span>
-          <button className="btn tbn-light" onClick={(event) => {
+          <button className="btn btn-light" onClick={(event) => {
             this.setState({ currentForm : "sell" })
           }}>
             Sell
@@ -47,6 +47,7 @@ class Main extends Component {
         <div className="card mb-4">
           <div className="card-body">{content}</div>
         </div>
+       
       </div>
     );
   }

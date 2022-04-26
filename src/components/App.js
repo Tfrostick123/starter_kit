@@ -4,6 +4,7 @@ import Token from "../abis/Token.json";
 import EthSwap from "../abis/EthSwap.json";
 import Navbar from "./Navbar";
 import Main from "./Main";
+import TransactionList from "./TransactionList.js";
 import "./App.css";
 
 class App extends Component {
@@ -44,7 +45,28 @@ class App extends Component {
       window.alert("EthSwap contract not deployed to detected network");
     }
 
+    this.getTransactions();
+
     this.setState({ loading: false });
+  }
+
+  async getTransactions() {
+    const web3 = window.web3;
+    //Load Transaction List
+    const transactions = await web3.eth.getPastLogs({fromBlock: '0x0', account:this.state.account});
+    let transactionData = [];
+    for (let transaction of transactions) {
+      //if (transaction.logIndex > 0) {
+      const tx = await web3.eth.getTransaction(transaction.transactionHash)
+      console.log(tx)
+        transactionData.push({
+          from: tx.from,
+          to: tx.to,
+          value: web3.utils.fromWei(tx.value, 'Ether')
+        });
+     // }
+    };
+    this.setState({transactions: transactionData});
   }
 
   async loadWeb3() {
@@ -64,6 +86,10 @@ class App extends Component {
     this.setState({loading:true})
     this.state.ethSwap.methods.buyTokens().send({value: etherAmount, from: this.state.account}).on('transactionHash', (hash) => {
       this.setState({loading:false})
+    }).then((event) => {
+      console.log(event.events.TokensPurchased.returnValues.rate)
+      console.log(window.web3.utils.fromWei(event.events.TokensPurchased.returnValues.amount, 'Ether'))
+      console.log('BUY')
     })
   })
 
@@ -71,8 +97,13 @@ class App extends Component {
     this.setState({loading:true})
     console.log(this.state.ethSwap._address)
     this.state.token.methods.approve(this.state.ethSwap._address, tokenAmount).send({from: this.state.account}).on('transactionHash', (hash) => {
-      this.state.ethSwap.methods.sellTokens(tokenAmount).send({from: this.state.account}).on('transactionHash', (hash) => {
+      let result = this.state.ethSwap.methods.sellTokens(tokenAmount).send({from: this.state.account}).on('transactionHash', (hash) => {
+        //this.getTransactions()
         this.setState({loading:false})
+      }).then((event) => {
+        console.log(event.events.TokensSold.returnValues.rate)
+        console.log(window.web3.utils.fromWei(event.events.TokensSold.returnValues.amount, 'Ether'))
+        console.log('SELL')
       })
     })
   });
@@ -85,17 +116,24 @@ class App extends Component {
       ethBalance: '0',
       tokenBalance: '0',
       ethSwap: {},
-      loading: true
+      loading: true,
+      transactions: []
     };
   };
 
   render() {
     let content;
+    let table;
     if (this.state.loading) {
       content = (
         <p id="loader" className="text-center">
           Loading...
         </p>
+      );
+      table = (
+        <div className="container-fluid mt-5">
+          <TransactionList transactions={this.state.transactions} />
+        </div>
       );
     } else {
       content = (<Main
@@ -103,6 +141,11 @@ class App extends Component {
                   tokenBalance = {this.state.tokenBalance}
                   buyTokens={this.buyTokens}
                   sellTokens={this.sellTokens}/>);
+      table = (
+        <div className="container-fluid mt-5">
+          <TransactionList transactions={this.state.transactions} />
+        </div>
+      );
     }
     return (
       <div>
@@ -120,6 +163,7 @@ class App extends Component {
             </main>
           </div>
         </div>
+        {table}
       </div>
     );
   }
