@@ -12,9 +12,11 @@ class TransactionList extends Component {
       <table class="table table-striped">
         <thead class="thead-dark">
           <tr>
-            <th scope="col">From</th>
-            <th scope="col">To</th>
-            <th scope="col">Value</th>
+            <th scope="col">Account</th>
+            <th scope="col">Direction</th>
+            <th scope="col">Rate</th>
+            <th scope="col">Amount</th>
+            <th scope="col">EtherAmount</th>
           </tr>
         </thead>
         <tbody>
@@ -36,9 +38,11 @@ class TransactionList extends Component {
       return (
         // React may complain to use key={user.id} for tracking and mutating items
         <tr>
-          <td> {transaction.from} </td>
-          <td> {transaction.to} </td>
-          <td> {transaction.value} </td>
+          <td> {transaction.account} </td>
+          <td> {transaction.direction} </td>
+          <td> {transaction.rate} </td>
+          <td> {transaction.amount} </td>
+          <td> {transaction.etherAmount} </td>
         </tr>
         
       );

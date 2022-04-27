@@ -24,7 +24,7 @@ class App extends Component {
 
     //Load Token
     const networkId = await web3.eth.net.getId();
-    const tokenData = Token.networks[networkId];
+    const tokenData = Token.networks[5777];
     if (tokenData) {
       const token = new web3.eth.Contract(Token.abi, tokenData.address);
       this.setState({ token });
@@ -52,21 +52,30 @@ class App extends Component {
 
   async getTransactions() {
     const web3 = window.web3;
-    //Load Transaction List
-    const transactions = await web3.eth.getPastLogs({fromBlock: '0x0', account:this.state.account});
+
+    const events = await this.state.ethSwap.getPastEvents({
+      fromBlock: "0x0",
+      toBlock: "latest",
+    });
     let transactionData = [];
-    for (let transaction of transactions) {
-      //if (transaction.logIndex > 0) {
-      const tx = await web3.eth.getTransaction(transaction.transactionHash)
-      console.log(tx)
-        transactionData.push({
-          from: tx.from,
-          to: tx.to,
-          value: web3.utils.fromWei(tx.value, 'Ether')
-        });
-     // }
-    };
-    this.setState({transactions: transactionData});
+    console.log(events);
+    for (let event of events) {
+      console.log(event);
+      let direction;
+      if (event.event === "TokensPurchased") {
+        direction = "Buy";
+      } else {
+        direction = "Sell";
+      }
+      transactionData.push({
+        account: event.returnValues.account,
+        rate: event.returnValues.rate,
+        amount: web3.utils.fromWei(event.returnValues.amount, "Ether"),
+        etherAmount: web3.utils.fromWei(event.returnValues.ethAmount, "Ether"),
+        direction: direction,
+      });
+    }
+    this.setState({ transactions: transactionData });
   }
 
   async loadWeb3() {
@@ -82,44 +91,69 @@ class App extends Component {
     }
   }
 
-  buyTokens = (etherAmount => {
-    this.setState({loading:true})
-    this.state.ethSwap.methods.buyTokens().send({value: etherAmount, from: this.state.account}).on('transactionHash', (hash) => {
-      this.setState({loading:false})
-    }).then((event) => {
-      console.log(event.events.TokensPurchased.returnValues.rate)
-      console.log(window.web3.utils.fromWei(event.events.TokensPurchased.returnValues.amount, 'Ether'))
-      console.log('BUY')
-    })
-  })
-
-  sellTokens = (tokenAmount => {
-    this.setState({loading:true})
-    console.log(this.state.ethSwap._address)
-    this.state.token.methods.approve(this.state.ethSwap._address, tokenAmount).send({from: this.state.account}).on('transactionHash', (hash) => {
-      let result = this.state.ethSwap.methods.sellTokens(tokenAmount).send({from: this.state.account}).on('transactionHash', (hash) => {
-        //this.getTransactions()
-        this.setState({loading:false})
-      }).then((event) => {
-        console.log(event.events.TokensSold.returnValues.rate)
-        console.log(window.web3.utils.fromWei(event.events.TokensSold.returnValues.amount, 'Ether'))
-        console.log('SELL')
+  buyTokens = (etherAmount) => {
+    this.setState({ loading: true });
+    this.state.ethSwap.methods
+      .buyTokens()
+      .send({ value: etherAmount, from: this.state.account })
+      .on("transactionHash", (hash) => {
+        this.setState({ loading: false });
       })
-    })
-  });
+      .then((event) => {
+        console.log("rate: " + event.events.TokensPurchased.returnValues.rate);
+        console.log("eth: " + window.web3.utils.fromWei(etherAmount, "Ether"));
+        console.log(
+          "tokens: " +
+            window.web3.utils.fromWei(
+              event.events.TokensPurchased.returnValues.amount,
+              "Ether"
+            )
+        );
+        console.log("BUY");
+      });
+  };
+
+  sellTokens = (tokenAmount) => {
+    this.setState({ loading: true });
+    console.log(this.state.ethSwap._address);
+    this.state.token.methods
+      .approve(this.state.ethSwap._address, tokenAmount)
+      .send({ from: this.state.account })
+      .on("transactionHash", (hash) => {
+        this.state.ethSwap.methods
+          .sellTokens(tokenAmount)
+          .send({ from: this.state.account })
+          .on("transactionHash", (hash) => {
+            //this.getTransactions()
+            this.setState({ loading: false });
+          })
+          .then((event) => {
+            console.log("rate: " + event.events.TokensSold.returnValues.rate);
+            console.log("tokens: " + tokenAmount);
+            console.log(
+              "eth: " +
+                window.web3.utils.fromWei(
+                  event.events.TokensSold.returnValues.amount,
+                  "Ether"
+                )
+            );
+            console.log("SELL");
+          });
+      });
+  };
 
   constructor(props) {
     super(props);
     this.state = {
       account: "",
       token: {},
-      ethBalance: '0',
-      tokenBalance: '0',
+      ethBalance: "0",
+      tokenBalance: "0",
       ethSwap: {},
       loading: true,
-      transactions: []
+      transactions: [],
     };
-  };
+  }
 
   render() {
     let content;
@@ -136,11 +170,14 @@ class App extends Component {
         </div>
       );
     } else {
-      content = (<Main
-                  ethBalance={this.state.ethBalance}
-                  tokenBalance = {this.state.tokenBalance}
-                  buyTokens={this.buyTokens}
-                  sellTokens={this.sellTokens}/>);
+      content = (
+        <Main
+          ethBalance={this.state.ethBalance}
+          tokenBalance={this.state.tokenBalance}
+          buyTokens={this.buyTokens}
+          sellTokens={this.sellTokens}
+        />
+      );
       table = (
         <div className="container-fluid mt-5">
           <TransactionList transactions={this.state.transactions} />
@@ -152,12 +189,17 @@ class App extends Component {
         <Navbar account={this.state.account} />
         <div className="container-fluid mt-5">
           <div className="row">
-            <main role="main" className="col-lg-12 ml-auto mr-auto" style={{maxWidth: '600px'}}>
+            <main
+              role="main"
+              className="col-lg-12 ml-auto mr-auto"
+              style={{ maxWidth: "600px" }}
+            >
               <div className="content mr-auto ml-auto">
-                <a href="http://www.dappuniversity.com/bootcamp"
+                <a
+                  href="http://www.dappuniversity.com/bootcamp"
                   target="_blank"
-                  rel="noopener noreferrer" >
-                  </a>
+                  rel="noopener noreferrer"
+                ></a>
                 {content}
               </div>
             </main>
